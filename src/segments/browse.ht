@@ -14,25 +14,38 @@ class BrowseEndpoint {
 
   fun sections({offset: int, limit: int}) {
     return Timezone.getLocalTimeZone().then((timeZone){
+      // Fix 1: Defensive check for credentials and cookies
+      var cookies = auth.credentials != null ? auth.credentials["cookies"] : null
+      var spTCookie = ""
+      if (cookies != null) {
+        var cookieMatch = cookies.where((c) => c["name"] == "sp_t").toList()
+        if (cookieMatch.length > 0) {
+          spTCookie = cookieMatch[0]["value"] ?? ""
+        }
+      }
+
       return client.browse.home(
         timeZone: timeZone,
-        spTCookie: auth.credentials["cookies"].where((c)=>c["name"] == "sp_t").elementAt(0)["value"]
+        spTCookie: spTCookie,
         limit: limit,
       ).then((sections){
+        // Ensure sections isn't null
+        var sectionList = sections ?? []
         return {
           limit: limit ?? 20,
           nextOffset: null,
           hasMore: false,
-          total: sections.length,
-          items: sections.map((section) {            
-            var playlists = section["items"].where((item) => item["objectType"] == "Playlist").toList()
-            var albums = section["items"].where((item) => item["objectType"] == "Album").toList()
-            var artists = section["items"].where((item) => item["objectType"] == "Artist").toList()
+          total: sectionList.length,
+          items: sectionList.map((section) {             
+            var items = section["items"] ?? []
+            var playlists = items.where((item) => item["objectType"] == "Playlist").toList()
+            var albums = items.where((item) => item["objectType"] == "Album").toList()
+            var artists = items.where((item) => item["objectType"] == "Artist").toList()
             
             return {
-              id: section["id"],
-              title: section["title"],
-              externalUri: section["external_urls"]["spotify"] ?? "https://open.spotify.com/section/${section["id"]}",
+              id: section["id"] ?? "",
+              title: section["title"] ?? "Unknown",
+              externalUri: section["external_urls"]?["spotify"] ?? "https://open.spotify.com/section/${section["id"]}",
               browseMore: true,
               items: [
                 ...Converters.simplePlaylistsFromLibraryV3(playlists),
@@ -48,19 +61,30 @@ class BrowseEndpoint {
 
   fun sectionItems(id: string, {offset: int, limit: int}) {
     return Timezone.getLocalTimeZone().then((timeZone) {
+      // Fix 2: Defensive check for credentials and cookies here too
+      var cookies = auth.credentials != null ? auth.credentials["cookies"] : null
+      var spTCookie = ""
+      if (cookies != null) {
+        var cookieMatch = cookies.where((c) => c["name"] == "sp_t").toList()
+        if (cookieMatch.length > 0) {
+          spTCookie = cookieMatch[0]["value"] ?? ""
+        }
+      }
+
       return client.browse.homeSection(
         id, 
         timeZone: timeZone,
-        spTCookie: auth.credentials["cookies"].where((c)=>c["name"] == "sp_t").elementAt(0)["value"],
+        spTCookie: spTCookie,
         offset: offset,
         limit: limit,
       ).then((section){
         return Converters.paginated(
-          section,
+          section ?? {},
           (items) {
-            var playlists = section["items"].where((item) => item["objectType"] == "Playlist").toList()
-            var albums = section["items"].where((item) => item["objectType"] == "Album").toList()
-            var artists = section["items"].where((item) => item["objectType"] == "Artist").toList()
+            var rawItems = section != null ? (section["items"] ?? []) : []
+            var playlists = rawItems.where((item) => item["objectType"] == "Playlist").toList()
+            var albums = rawItems.where((item) => item["objectType"] == "Album").toList()
+            var artists = rawItems.where((item) => item["objectType"] == "Artist").toList()
 
             return [
                 ...Converters.simplePlaylistsFromLibraryV3(playlists),
