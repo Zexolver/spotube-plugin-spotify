@@ -7,5 +7,5 @@
   "apis": ["webview", "localstorage", "timezone"],
   "abilities": ["authentication", "metadata"],
   "repository": "https://github.com/Zexolver/spotube-plugin-spotify",
-  "pluginApiVersion": "2.0.0-"
+  "pluginApiVersion": "2.0.0"
 }
